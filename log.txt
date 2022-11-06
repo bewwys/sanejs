@@ -1,0 +1,8 @@
+11/6/2022:
+Working on the node creation with recursively_make_real_node() function. We have bugs in the process which requires investigations.
+
+My concerns for now is the tree traversal for each vdoms. First to compare the previous vdom to the current and the second to diff the changes. The worst case is something like (n^2).
+
+The render path is called every 16ms on the mainthread. I want to move it to background thead processing all virtual things and only use the main thread to process real nodes (because of the limitations of the workers). But, in the near futur I don't want to call the renderer every frames but only when there is a change of state. Maybe use something like watch_state(val) ???
+
+Also because the nature of imgui we need to traverse the render path even if there is a change in only one state. I'd like something very surgical were we start to look for the diff only at the level of the element where the state has change. Also I don't want to traverse all the tree from the element if I know that nothing bellow has changed. Now it's just statements of concerns.
