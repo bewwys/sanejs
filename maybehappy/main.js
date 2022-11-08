@@ -1,3 +1,5 @@
+// Log: Start 09:07
+
 global_ui_context = {
     current_el              : null,
     root                    : null,
@@ -8,7 +10,8 @@ global_ui_context = {
     previous_vdom           : {tag_name    : "MAIN",
                                attrs       : {id:"root"},
                                children    : [],
-                               parent_node : {}}
+                               parent_node : {}},
+    where_ami               : {}
 }
 
 global_ui_context.previous_vdom.parent_node = global_ui_context.previous_vdom
@@ -23,28 +26,43 @@ function ui_begin(el) {
     global_ui_context.vdom.children           = [];
     global_ui_context.vdom.parent_node         = global_ui_context.vdom;
     global_ui_context.virtual_append          = global_ui_context.vdom.children;
-    global_ui_context.previous_virtual_append = global_ui_context.virtual_append; 
+    global_ui_context.previous_virtual_append = global_ui_context.virtual_append;
+    // TODO(): We need to refactor to create a beautiful and comprehensive
+    //         object.
+    global_ui_context.where_ami               = global_ui_context.vdom;
 }
 
 // @-@
 // vel : Virtual_Element 
 // @-@
+
+// I'm so tired right now but I have an idea maybe take the parentNode 
+// when we want to append. Recursively append the children to the papa.
+// We need some kind of the root where all the recursive will be made.
+// TODO(): Bug; We append the papa node with itself causing a problem. 
+// TODO(): bug; We try to get the parent node with getElementById but we didn't
+//         render it on the dom yet so parent_node = null.
 function recursively_make_real_node(vel) {
     console.log("//// vel start ////");
     console.log(vel);
     console.log("//// vel end ////");
     // TODO(): FOR NOW WE ASSUME THAT WE ALWAYS PASS A VEL!!!!!
     let node = document.createElement(vel.tag_name);
+    let papa_vel = vel.parent_node;
+    let papa_node = document.getElementById(papa_vel.attrs.id);
     node.setAttribute("id", vel.attrs.id);
+    node.setAttribute("innerHTML", vel.attrs.innerHTML);
     result_append = node;
     for (let i = 0; i < vel.children.length; i++) {
         result_append = recursively_make_real_node(vel.children[i]);
-        node.appendChild(result_append);
+    }
+    if (papa_node != result_append) {
+        papa_node.appendChild(result_append);
     }
     console.log("//// result_append start ////");
     console.log(node);
     console.log("//// result_append end ////");
-    return result_append;
+    return papa_node;
 }
 
 // @-@
@@ -72,7 +90,7 @@ function go_deep(current_vdom_vel, previous_vdom_vel) {
         if (previous_vdom_vel.children.length === 0) {
             // console.log("Add operation");
             // console.log(current_vdom_vel);
-            let papa = document.getElementById(current_vdom_vel.parent_node.id);
+            let papa = document.getElementById(current_vdom_vel.attrs.id);
             // Create real node from current_vdom
             let from_current_vdom_to_real_node = recursively_make_real_node(current_vdom_vel);
             // Append new node to current real dom
@@ -103,19 +121,12 @@ function ui_end(el) {
 // p_node : Vdom_Element
 // @-@
 function do_button(id, text, p_node) {
-    let el = document.getElementById(id);
-    if (el === null) {
-        el = document.createElement("button");
-        el.setAttribute("id", id);
-        el.innerHTML = text
-        global_ui_context.layout.appendChild(el);
+    // global_ui_context.layout.appendChild(el);
         global_ui_context.virtual_append.push({
-            tag_name    : el.tagName,
-            attrs       : {id: el.getAttribute(id), innerHTML: text},
+            tag_name    : "BUTTON",
+            attrs       : {id: id, innerHTML: text},
             children    : [],
-            parent_node : p_node
-        });
-    }
+            parent_node : global_ui_context.where_ami});
 }
 
 // @-@
@@ -123,23 +134,15 @@ function do_button(id, text, p_node) {
 // p_node : Vdom_Element
 // @-@
 function ui_begin_section(id_sec, p_node) {
-    let el = document.getElementById(id_sec);
-    if (el === null) {
-        el = document.createElement("section");
-        el.setAttribute("id", id_sec);
-        // console.log(global_ui_context.layout);
-        global_ui_context.layout.appendChild(el);
-        global_ui_context.virtual_append.push({
-            tag_name : el.tagName,
-            attrs    : {id: el.getAttribute(id_sec)},
-            children : [],
-            parent_node : p_node
-        });
-
-    // console.log(global_ui_context.virtual_append);    
-
-    }
-    global_ui_context.layout = el;
+    // global_ui_context.layout.appendChild(el);
+    global_ui_context.virtual_append.push({
+        tag_name : "SECTION",
+        attrs    : {id: id_sec, innerHTML: null},
+        children : [],
+        parent_node : p_node
+    });
+    global_ui_context.where_ami = global_ui_context.virtual_append[global_ui_context.virtual_append.length - 1];
+    // global_ui_context.layout = el;
     global_ui_context.previous_virtual_append = global_ui_context.virtual_append;
     global_ui_context.virtual_append = global_ui_context.vdom.children[global_ui_context.virtual_append.length - 1].children;
 }
@@ -152,14 +155,17 @@ function ui_end_section(previous_layout_id, previous_virtual_append) {
     let el = document.getElementById(previous_layout_id)
     global_ui_context.layout = el;
     global_ui_context.virtual_append = previous_virtual_append;
+    // This is broke we need to make where ami = to previous where ami.
+    global_ui_context.where_ami = previous_virtual_append;
 }
-
+// TODO(): We need to make virtual append not pointing to the array of children
+//         but to the parent containing thoses arrays
 function render() {
     let root = document.getElementById("root");
     ui_begin(root);
-        do_button("btn-1", "mon bouton", global_ui_context.virtual_append);
-        ui_begin_section("sec-1", global_ui_context.virtual_append);
-            do_button("btn-2", "mon deuxième bouton", global_ui_context.virtual_append);
+        do_button("btn-1", "mon bouton", global_ui_context.where_ami);
+        ui_begin_section("sec-1", global_ui_context.where_ami);
+            do_button("btn-2", "mon deuxième bouton", global_ui_context.where_ami);
         ui_end_section(root, global_ui_context.previous_virtual_append);
     ui_end(root);
 }
